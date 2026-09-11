@@ -31,6 +31,19 @@ fn once_cell_with_value() {
     assert_eq!(CELL.get(), Some(&12));
 }
 
+#[cfg(not(feature = "std"))]
+#[test]
+fn initialized_read_does_not_acquire_critical_section() {
+    let cell = OnceCell::with_value(42);
+    scope(|s| {
+        let (tx, rx) = std::sync::mpsc::channel();
+        critical_section::with(|_| {
+            s.spawn(move || tx.send(*cell.get().unwrap()).unwrap());
+            assert_eq!(rx.recv_timeout(std::time::Duration::from_secs(1)).unwrap(), 42);
+        });
+    });
+}
+
 #[test]
 fn once_cell_get_mut() {
     let mut c = OnceCell::new();
